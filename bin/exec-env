@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
 
 if [ "${ASDF_INSTALL_VERSION}" != 'system' ]; then
-  if [[ "unset" == "${GOROOT:-unset}" ]]; then
-    export GOROOT=$ASDF_INSTALL_PATH/go
-  fi
+  # Dynamically get the currently active go binary path
+  # asdf which go determines the version based on .tool-versions in the current directory
+  go_bin_path="$(asdf which go 2>/dev/null)"
+  if [ -n "${go_bin_path}" ]; then
+    # Resolve symbolic link to get the real path
+    abs_go_bin_path="$(readlink -f "${go_bin_path}")"
 
-  if [[ "unset" == "${GOPATH:-unset}" ]]; then
-    export GOPATH=$ASDF_INSTALL_PATH/packages
-  fi
+    # Derive path: go binary is located at $GOROOT/bin/go
+    go_root="$(dirname "$(dirname "${abs_go_bin_path}")")"
 
-  if [[ "unset" == "${GOBIN:-unset}" ]]; then
-    export GOBIN=$ASDF_INSTALL_PATH/bin
+    # Set and export all paths uniformly
+    export GOROOT="${go_root}"
+    export GOPATH="$(dirname "${go_root}")/packages"
+    export GOBIN="$(dirname "${go_root}")/bin"
+  else
+    # Fallback: use ASDF_INSTALL_PATH when asdf which go fails
+    if [ -d "${ASDF_INSTALL_PATH}/go" ]; then
+      export GOROOT="${ASDF_INSTALL_PATH}/go"
+      export GOPATH="${ASDF_INSTALL_PATH}/packages"
+      export GOBIN="${ASDF_INSTALL_PATH}/bin"
+    fi
   fi
 fi
